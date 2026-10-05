@@ -54,3 +54,5 @@ a {
     transition-duration: 0.01ms !important;
   }
 }
+.field { border: 1px solid rgba(255,255,255,.1); background: #050505; border-radius: .65rem; padding: .7rem .8rem; color: white; font-size: .875rem; outline: none; }
+.field:focus { border-color: rgba(255,255,255,.3); }
