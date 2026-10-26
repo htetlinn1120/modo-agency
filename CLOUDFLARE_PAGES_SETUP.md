@@ -9,13 +9,14 @@ The application uses Cloudflare Pages static output plus Pages Functions, D1 for
 - Custom domain: `modobrandingdigital.org`
 - Build command: `npm run build`
 - Build output directory: `out`
+- Deploy command (if using Workers Builds UI): `npm run deploy:pages`
 - Node.js: 22 or newer
 
 Keep the existing Cloudflare zone and domain records. Do not replace nameservers or delete existing DNS/mail records as part of this deployment.
 
 ## Cloudflare Pages configuration
 
-In the existing Pages project, use the `main` branch and configure the build command/output above. Under Settings → Bindings, add the following bindings to both Production and Preview only if Preview should use separate test data:
+In the existing Cloudflare project, this repository is implemented as **Pages + Pages Functions** (the `functions/` directory and `pages_build_output_dir` in `wrangler.toml`). Configure it as a Pages project with `main`, build command `npm run build`, and output directory `out`. If the dashboard screen is the Workers Builds interface shown in the current screenshot, its current `npx wrangler deploy` command is for a Worker deployment, not this Pages setup. Set its deploy command to `npm run deploy:pages` only if that interface supports Pages CLI deployments; otherwise connect/import the repository as an existing Pages project. The build stage itself must pass before deployment can happen. Under Settings → Bindings, add the following bindings to both Production and Preview only if Preview should use separate test data:
 
 - D1 database binding name: `DB`; select the existing database `modo-content`.
 - R2 bucket binding name: `MEDIA`; select the existing bucket `modo-media`.
