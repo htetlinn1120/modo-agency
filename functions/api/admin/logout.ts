@@ -7,7 +7,7 @@ async function sha256(value: string): Promise<string> {
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const cookie = request.headers.get("Cookie") || "";
-  const match = cookie.match(/(?:^|;\\s*)modo_admin_session=([^;]+)/);
+  const match = cookie.match(/(?:^|;\s*)modo_admin_session=([^;]+)/);
   if (match) {
     try {
       await env.DB.prepare("DELETE FROM admin_sessions WHERE token_hash = ?")
