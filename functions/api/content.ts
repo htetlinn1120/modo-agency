@@ -1,6 +1,6 @@
 interface Env {
   DB: D1Database;
-  ADMIN_PASSWORD: string;
+  ADMIN_PASSWORD: string;\n  ADMIN_EMAIL: string;
 }
 
 const allowedKeys = new Set(["services", "clients", "projects", "insights"]);
