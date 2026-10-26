@@ -1,6 +1,7 @@
 interface Env {
   DB: D1Database;
-  ADMIN_PASSWORD: string;\n  ADMIN_EMAIL: string;
+  ADMIN_PASSWORD: string;
+  ADMIN_EMAIL: string;
 }
 
 const allowedKeys = new Set(["services", "clients", "projects", "insights"]);
@@ -12,7 +13,7 @@ async function sha256(value: string): Promise<string> {
 
 async function hasAdminSession(request: Request, env: Env): Promise<boolean> {
   const cookie = request.headers.get("Cookie") || "";
-  const match = cookie.match(/(?:^|;\\s*)modo_admin_session=([^;]+)/);
+  const match = cookie.match(/(?:^|;\s*)modo_admin_session=([^;]+)/);
   if (!match) return false;
   const token = decodeURIComponent(match[1]);
   const tokenHash = await sha256(token);
