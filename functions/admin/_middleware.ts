@@ -10,7 +10,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, next }) => {
   if (url.pathname === "/admin/login" || url.pathname === "/admin/login/") return next();
 
   const cookie = request.headers.get("Cookie") || "";
-  const match = cookie.match(/(?:^|;\\s*)modo_admin_session=([^;]+)/);
+  const match = cookie.match(/(?:^|;\s*)modo_admin_session=([^;]+)/);
   if (!match) return Response.redirect(new URL("/admin/login/", url), 302);
 
   try {
