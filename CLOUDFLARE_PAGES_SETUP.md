@@ -1,8 +1,8 @@
-# Cloudflare Pages deployment
+# MODO — Cloudflare-only deployment
 
-This repository is configured for a static Next.js export.
+The application is being moved off Netlify and Supabase content storage to Cloudflare Pages Functions, D1, and R2. The Next.js UI is exported as static files; the Cloudflare Pages Functions provide the API and protected admin session.
 
-## Build settings
+## Cloudflare Pages build
 
 - Production branch: `main`
 - Framework preset: `Next.js (Static HTML Export)`
@@ -10,18 +10,30 @@ This repository is configured for a static Next.js export.
 - Build output directory: `out`
 - Node.js version: 22 or newer
 
-## Build environment variables
+## Required Cloudflare resources
 
-Add these in Cloudflare Pages → Settings → Environment variables, for both Production and Preview if both are used:
+Create a D1 database named `modo-content` and an R2 bucket named `modo-media`. Update `database_id` in `wrangler.toml` with the actual D1 database ID. Bindings must be named exactly `DB` and `MEDIA`.
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+Apply the SQL migration in `migrations/0001_initial.sql` to the D1 database before testing Admin.
 
-These values are embedded by Next.js at build time, so trigger a new deployment after setting or changing them.
+## Required secrets
 
-## Notes
+In Cloudflare Pages → Settings → Variables and Secrets, configure for Production (and Preview only if needed):
 
-- Public pages read the editable Services, Clients, Projects, and Insights content from the Supabase `public.modo_content` table.
-- The admin login uses Supabase Auth. Keep row-level security enabled on `modo_content` and ensure only authorized admin users can write.
-- This deployment uses Cloudflare Pages static hosting; it does not require a Cloudflare Worker.
-- The `public/_headers` file supplies security headers on Pages.
+- `ADMIN_EMAIL` — the admin login email
+- `ADMIN_PASSWORD` — a long, unique admin password; configure as a secret, never commit it
+
+Do not add Netlify or Supabase environment variables for this Cloudflare-native content/auth implementation.
+
+## Admin and content API
+
+- `/admin/login/` authenticates against the two Cloudflare secrets.
+- The server stores only a SHA-256 hash of a random 12-hour session token in D1. The browser receives an HttpOnly, Secure, SameSite=Strict cookie.
+- `/admin/*` is protected by a Pages Functions middleware.
+- `GET /api/content` serves published content.
+- `PUT /api/content` requires a valid admin session and writes to D1.
+- `POST /api/media` accepts JPG, PNG, WebP, and AVIF uploads up to 10 MB into R2; `GET /api/media/uploads/...` serves those objects.
+
+## Important
+
+A GitHub commit does not itself prove the Cloudflare deployment is live. After resources and bindings are configured, deploy from `main`, then test the public website, admin login, protected `/admin/` route, content save/reload, and media upload. Do not mark the migration complete until those checks pass.
