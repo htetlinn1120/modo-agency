@@ -1,13 +1,14 @@
 "use client";
 
 import React from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseBrowserClient } from "../../../lib/supabase/client";
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const [notAuthorized, setNotAuthorized] = React.useState(false);
+  React.useEffect(() => { setNotAuthorized(new URLSearchParams(window.location.search).get("error") === "not-authorized"); }, []);
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [busy, setBusy] = React.useState(false);
@@ -49,7 +50,7 @@ export default function AdminLoginPage() {
         <p className="mt-10 text-xs uppercase tracking-[.25em] text-neutral-500">MODO · Content Manager</p>
         <h1 className="mt-3 text-3xl tracking-tight">Admin sign in</h1>
         <p className="mt-3 text-sm leading-relaxed text-neutral-500">Sign in with the admin account created in Supabase.</p>
-        {searchParams.get("error") === "not-authorized" && <p className="mt-5 border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">This account does not have MODO admin access.</p>}
+        {notAuthorized && <p className="mt-5 border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">This account does not have MODO admin access.</p>}
         {error && <p role="alert" className="mt-5 border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
         <label className="mt-7 block text-sm text-neutral-300">Email
           <input autoComplete="username" type="email" required value={email} onChange={e => setEmail(e.target.value)} className="mt-2 w-full rounded-lg border border-white/15 bg-black px-4 py-3 outline-none focus:border-white/50" />
