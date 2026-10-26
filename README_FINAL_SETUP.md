@@ -1,9 +1,12 @@
-# MODO Final Admin
+# MODO Admin — Current Setup
 
-This package keeps the existing MODO website/domain structure. It does not change or transfer `modobrandingdigital.org`.
+The current admin implementation uses Supabase Auth, the `admin_users` allow-list, the `site_content` table, and the `modo-media` Storage bucket.
 
-Supabase URL and the public Publishable key are embedded in the client/server configuration so the local `.env.local` file is not required for this build.
+Follow **README_SUPABASE_SETUP.md** for the complete free-plan setup.
 
-Admin login still uses Supabase Auth and the `public.admin_users` allow-list. The Supabase project must contain the admin user and its UUID in `public.admin_users`.
-
-The login page now has a 12-second timeout instead of remaining on `Signing in…` forever.
+Important:
+- Configure `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in Netlify Environment Variables.
+- Run `supabase/schema.sql` in Supabase SQL Editor.
+- Create an admin user in Supabase Authentication and add that user's UUID to `public.admin_users`.
+- Do not place a Supabase service-role or secret key in client-side code.
+- Changes are committed only to the `preview` branch. Do not merge to `main` until Netlify preview build, login, database save, and media upload tests succeed.
