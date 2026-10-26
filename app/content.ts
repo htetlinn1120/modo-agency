@@ -1,6 +1,6 @@
 export type Service = { number: string; title: string; text: string };
 export type Client = { name: string; logo: string };
-export type Project = { title: string; category: string; year: string; description: string };
+export type Project = { title: string; category: string; year: string; description: string; image?: string };
 export type Article = { title: string; slug: string; category: string; excerpt: string; content: string; date: string; readTime: string };
 
 export const defaultServices: Service[] = [
