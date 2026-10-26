@@ -14,7 +14,7 @@ function randomToken(): string {
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
-  let body: { password?: string };
+  let body: { email?: string; password?: string };
   try { body = await request.json(); } catch {
     return Response.json({ error: "Invalid request" }, { status: 400 });
   }
