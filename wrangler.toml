@@ -2,12 +2,7 @@ name = "modo-agency"
 compatibility_date = "2026-10-27"
 pages_build_output_dir = "out"
 
-[[d1_databases]]
-binding = "DB"
-database_name = "modo-content"
-database_id = "REPLACE_WITH_CLOUDFLARE_D1_DATABASE_ID"
-migrations_dir = "migrations"
-
-[[r2_buckets]]
-binding = "MEDIA"
-bucket_name = "modo-media"
+# Configure the Pages Functions bindings in the Cloudflare Dashboard:
+# D1 database binding: DB -> modo-content
+# R2 bucket binding: MEDIA -> modo-media
+# Configure ADMIN_EMAIL and ADMIN_PASSWORD as Pages environment variables/secrets.
