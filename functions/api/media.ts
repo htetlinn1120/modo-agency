@@ -6,7 +6,7 @@ async function sha256(value: string): Promise<string> {
 }
 
 async function hasAdminSession(request: Request, env: Env): Promise<boolean> {
-  const match = (request.headers.get("Cookie") || "").match(/(?:^|;\\s*)modo_admin_session=([^;]+)/);
+  const match = (request.headers.get("Cookie") || "").match(/(?:^|;\s*)modo_admin_session=([^;]+)/);
   if (!match) return false;
   const tokenHash = await sha256(decodeURIComponent(match[1]));
   const row = await env.DB.prepare(
