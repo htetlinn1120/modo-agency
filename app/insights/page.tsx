@@ -1,6 +1,5 @@
 "use client";
 import React from "react";
-import { createBrowserClient } from "@supabase/ssr";
 import Link from "next/link";
 import { defaultArticles, type Article } from "../content";
 import { insightCategories } from "../data";
