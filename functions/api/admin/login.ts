@@ -1,6 +1,7 @@
 interface Env {
   DB: D1Database;
-  ADMIN_PASSWORD: string;\n  ADMIN_EMAIL: string;
+  ADMIN_PASSWORD: string;
+  ADMIN_EMAIL: string;
 }
 
 async function sha256(value: string): Promise<string> {
@@ -22,7 +23,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return Response.json({ error: "Login is not configured" }, { status: 503 });
   }
   if (body.email.trim().toLowerCase() !== env.ADMIN_EMAIL.trim().toLowerCase() || body.password !== env.ADMIN_PASSWORD) {
-    return Response.json({ error: "Incorrect password" }, { status: 401 });
+    return Response.json({ error: "Incorrect email or password" }, { status: 401 });
   }
 
   const token = randomToken();
