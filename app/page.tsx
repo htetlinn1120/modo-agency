@@ -1,6 +1,5 @@
 "use client";
 import React from "react";
-import { createBrowserClient } from "@supabase/ssr";
 import { defaultArticles, defaultClients, defaultProjects, defaultServices, type Article, type Client, type Project, type Service } from "./content";
 
 const load = <T,>(key: string, fallback: T): T => { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } };
@@ -12,18 +11,14 @@ export default function Home() {
   const [articles, setArticles] = React.useState<Article[]>(defaultArticles);
   React.useEffect(() => {
     setServices(load("modo-services", defaultServices)); setClients(load("modo-clients", defaultClients)); setProjects(load("modo-projects", defaultProjects)); setArticles(load("modo-articles", defaultArticles));
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-    if (!url || !key) return;
-    const client = createBrowserClient(url, key);
-    client.from("modo_content").select("content_key,content").then(({ data, error }) => {
-      if (error || !data) return;
-      const rows = new Map(data.map((row: any) => [row.content_key, row.content]));
-      if (rows.has("services")) setServices(rows.get("services") as Service[]);
-      if (rows.has("clients")) setClients(rows.get("clients") as Client[]);
-      if (rows.has("projects")) setProjects(rows.get("projects") as Project[]);
-      if (rows.has("insights")) setArticles(rows.get("insights") as Article[]);
-    });
+    fetch("/api/content", { cache: "no-store" }).then((response) => response.ok ? response.json() : null).then((result) => {
+      const content = result?.content;
+      if (!content) return;
+      if (content.services) setServices(content.services as Service[]);
+      if (content.clients) setClients(content.clients as Client[]);
+      if (content.projects) setProjects(content.projects as Project[]);
+      if (content.insights) setArticles(content.insights as Article[]);
+    }).catch(() => {});
   }, []);
   return <main id="top" className="overflow-hidden bg-[#0a0a0a] text-white">
     <nav className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.05] bg-[#0a0a0a]/80 px-6 py-5 backdrop-blur-md md:px-10"><div className="mx-auto flex max-w-[1400px] items-center justify-between"><a href="#top"><img src="/modo-logo.png" alt="MODO Branding Agency" className="w-[100px] md:w-[120px]" /></a><div className="hidden items-center gap-9 text-sm text-neutral-400 md:flex"><a href="#work" className="hover:text-white">Work</a><a href="#services" className="hover:text-white">Services</a><a href="#insights" className="hover:text-white">Insights</a><a href="#about" className="hover:text-white">About</a></div><a href="#contact" className="rounded-full border border-white/20 px-5 py-2.5 text-sm hover:bg-white hover:text-black">Start a project</a></div></nav>
