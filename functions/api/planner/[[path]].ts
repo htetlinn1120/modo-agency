@@ -160,16 +160,6 @@ export const onRequestPost: PagesFunction<Env> = async ({request,env,params}) =>
       return out({ok:true,invitation:{email,name,role,expiresAt:expires,inviteUrl}},201);
     }
 
-      const b=await body<{email?:string;name?:string;role?:Role;password?:string;clientId?:string}>(request);
-      const email=String(b?.email||"").trim().toLowerCase(),name=String(b?.name||"").trim(),role=b?.role,pass=String(b?.password||""),clientId=b?.clientId||null;
-      if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)||!name||!["admin","staff","client"].includes(String(role))||pass.length<12||pass.length>256) return out({error:"Valid email, name, role and 12+ character password are required"},400);
-      if(role==="client"&&!clientId) return out({error:"Client users must be linked to a client"},400);
-      if(clientId&&!await env.DB.prepare("SELECT id FROM planner_clients WHERE id=? AND workspace_id=?").bind(clientId,s.workspaceId).first()) return out({error:"Client not found"},404);
-      const uid=id(),salt=hex();
-      try { await env.DB.prepare("INSERT INTO planner_users(id,workspace_id,client_id,email,name,role,password_hash,password_salt) VALUES(?,?,?,?,?,?,?,?)").bind(uid,s.workspaceId,clientId,email,name.slice(0,100),role,await hashPassword(pass,salt),salt).run(); }
-      catch { return out({error:"Member email already exists in this workspace"},409); }
-      return out({ok:true,member:{id:uid,email,name,role,clientId}},201);
-    }
     if(p[0]==="posts"&&p.length===1) {
       if(!allowed(s,["owner","admin","staff"])) return out({error:"Forbidden"},403);
       const b=await body<{clientId?:string;title?:string;caption?:string;platform?:string;format?:string;publishAt?:string|null}>(request);
