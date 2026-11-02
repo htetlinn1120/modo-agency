@@ -41,6 +41,13 @@ export const onRequestGet: PagesFunction<Env> = async ({request,env,params}) => 
   const p=segments(params);
   try {
     const s=await session(request,env); if(!s) return out({error:"Unauthorized"},401);
+    if(p[0]==="media" && p[1]) {
+      const m=await env.DB.prepare("SELECT r2_key AS r2Key,content_type AS contentType FROM planner_media WHERE id=? AND workspace_id=?").bind(p[1],s.workspaceId).first<{r2Key:string;contentType:string}>();
+      if(!m) return new Response("Not found",{status:404});
+      const object=await env.MEDIA.get(m.r2Key); if(!object) return new Response("Not found",{status:404});
+      const h=new Headers(); object.writeHttpMetadata(h); h.set("Content-Type",m.contentType); h.set("X-Content-Type-Options","nosniff"); h.set("Cache-Control","private, no-store");
+      return new Response(object.body,{headers:h});
+    }
     if(p[0]==="me" || p[0]==="workspace") {
       const w=await env.DB.prepare("SELECT id,slug,name,logo_url AS logoUrl,primary_color AS primaryColor,custom_domain AS customDomain FROM planner_workspaces WHERE id=?").bind(s.workspaceId).first();
       return p[0]==="me" ? out({user:{id:s.userId,email:s.email,name:s.name,role:s.role,clientId:s.clientId},workspace:w}) : out({workspace:w});
@@ -158,6 +165,22 @@ export const onRequestPost: PagesFunction<Env> = async ({request,env,params}) =>
       await env.DB.prepare("INSERT INTO planner_approval_events(id,workspace_id,post_id,actor_user_id,action,comment) VALUES(?,?,?,?,?,?)").bind(id(),s.workspaceId,p[1],s.userId,b.action,comment).run();
       return out({ok:true,post:await postById(env,s,p[1])});
     }
+    if(p[0]==="media") {
+      if(!allowed(s,["owner","admin","staff"])) return out({error:"Forbidden"},403);
+      const form=await request.formData().catch(()=>null),file=form?.get("file");
+      if(!(file instanceof File)) return out({error:"Image file required"},400);
+      const types:Record<string,string>={"image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/avif":"avif"};
+      const ext=types[file.type]; if(!ext) return out({error:"Only JPG, PNG, WebP and AVIF images are supported"},415);
+      if(file.size<1||file.size>10*1024*1024) return out({error:"Image must be smaller than 10 MB"},413);
+      const clientId=String(form.get("clientId")||"")||null;
+      if(clientId&&!await env.DB.prepare("SELECT id FROM planner_clients WHERE id=? AND workspace_id=?").bind(clientId,s.workspaceId).first()) return out({error:"Client not found"},404);
+      const mid=id(),key=`planner/${s.workspaceId}/${mid}.${ext}`;
+      await env.MEDIA.put(key,await file.arrayBuffer(),{httpMetadata:{contentType:file.type,cacheControl:"private, no-store"}});
+      try {
+        await env.DB.prepare("INSERT INTO planner_media(id,workspace_id,client_id,r2_key,filename,content_type,size_bytes,uploaded_by) VALUES(?,?,?,?,?,?,?,?)").bind(mid,s.workspaceId,clientId,key,file.name.slice(0,200),file.type,file.size,s.userId).run();
+      } catch(e) { return out({error:"Media metadata could not be saved"},503); }
+      return out({ok:true,media:{id:mid,filename:file.name,contentType:file.type,sizeBytes:file.size,url:`/api/planner/media/${mid}`}},201);
+    }
     return out({error:"Not found"},404);
   } catch { return out({error:"Planner service unavailable"},503); }
 };
@@ -166,6 +189,16 @@ export const onRequestPut: PagesFunction<Env> = async ({request,env,params}) => 
   if(!sameOrigin(request)) return out({error:"Invalid origin"},403);
   const p=segments(params),s=await session(request,env).catch(()=>null);
   if(!s) return out({error:"Unauthorized"},401);
+  if(p[0]==="posts"&&p[1]&&allowed(s,["owner","admin","staff"])) {
+    const b=await body<{title?:string;caption?:string;platform?:string;format?:string;publishAt?:string|null;status?:string}>(request);
+    const current=await postById(env,s,p[1]); if(!current) return out({error:"Post not found"},404);
+    const title=String(b?.title??current.title).trim();
+    if(!title||title.length>200) return out({error:"Invalid title"},400);
+    const status=b?.status&&["draft","planned"].includes(b.status)?b.status:current.status;
+    await env.DB.prepare("UPDATE planner_posts SET title=?,caption=?,platform=?,format=?,publish_at=?,status=?,updated_at=datetime('now') WHERE id=? AND workspace_id=?")
+      .bind(title,b?.caption===undefined?current.caption:String(b.caption).slice(0,20000),b?.platform===undefined?current.platform:String(b.platform).slice(0,40),b?.format===undefined?current.format:String(b.format).slice(0,40),b?.publishAt===undefined?current.publishAt:b.publishAt,status,p[1],s.workspaceId).run();
+    return out({ok:true,post:await postById(env,s,p[1])});
+  }
   if(p[0]!=="workspace"||!allowed(s,["owner","admin"])) return out({error:"Forbidden"},403);
   const b=await body<{name?:string;logoUrl?:string|null;primaryColor?:string;customDomain?:string|null}>(request);
   if(!b) return out({error:"Invalid JSON"},400);
