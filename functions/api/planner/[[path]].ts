@@ -60,7 +60,8 @@ export const onRequestGet: PagesFunction<Env> = async ({request,env,params}) => 
     }
     if(p[0]==="members" && allowed(s,["owner","admin"])) {
       const r=await env.DB.prepare("SELECT id,client_id AS clientId,email,name,role,is_active AS isActive FROM planner_users WHERE workspace_id=? ORDER BY created_at DESC").bind(s.workspaceId).all();
-      return out({members:r.results||[]});
+      const pending=await env.DB.prepare("SELECT email,name,role,expires_at AS expiresAt,created_at AS createdAt FROM planner_invitations WHERE workspace_id=? AND accepted_at IS NULL AND expires_at>? ORDER BY created_at DESC").bind(s.workspaceId,now()).all();
+      return out({members:r.results||[],invitations:pending.results||[]});
     }
     if(p[0]==="posts" || p[0]==="approvals") {
       let q="SELECT p.id,p.client_id AS clientId,c.name AS clientName,p.title,p.caption,p.platform,p.format,p.publish_at AS publishAt,p.status,p.client_feedback AS clientFeedback FROM planner_posts p JOIN planner_clients c ON c.id=p.client_id AND c.workspace_id=p.workspace_id WHERE p.workspace_id=?";
@@ -97,6 +98,26 @@ export const onRequestPost: PagesFunction<Env> = async ({request,env,params}) =>
       }
       return out({ok:true,workspace:{id:wid,slug,name},owner:{id:uid,email,name:owner,role:"owner"}},201);
     }
+    if(p[0]==="auth"&&p[1]==="accept-invite") {
+      const b=await body<{token?:string;password?:string}>(request);
+      const token=String(b?.token||""),pass=String(b?.password||"");
+      if(!/^[a-f0-9]{64}$/.test(token)||pass.length<12||pass.length>256) return out({error:"A valid invitation and password of at least 12 characters are required"},400);
+      const inv=await env.DB.prepare("SELECT token_hash AS tokenHash,workspace_id AS workspaceId,email,name,role,client_id AS clientId,expires_at AS expiresAt,accepted_at AS acceptedAt FROM planner_invitations WHERE token_hash=?").bind(await digest(token)).first<any>();
+      if(!inv||inv.acceptedAt||inv.expiresAt<=now()) return out({error:"This invitation is invalid, expired or already used"},410);
+      const existing=await env.DB.prepare("SELECT id FROM planner_users WHERE workspace_id=? AND email=?").bind(inv.workspaceId,inv.email).first();
+      if(existing) return out({error:"An account with this email already exists in this workspace"},409);
+      const uid=id(),salt=hex(),passwordHashValue=await hashPassword(pass,salt);
+      try {
+        await env.DB.prepare("INSERT INTO planner_users(id,workspace_id,client_id,email,name,role,password_hash,password_salt) VALUES(?,?,?,?,?,?,?,?)").bind(uid,inv.workspaceId,inv.clientId,inv.email,inv.name,inv.role,passwordHashValue,salt).run();
+        const updated=await env.DB.prepare("UPDATE planner_invitations SET accepted_at=? WHERE token_hash=? AND accepted_at IS NULL AND expires_at>?").bind(now(),inv.tokenHash,now()).run();
+        if(!updated.meta.changes) {
+          await env.DB.prepare("DELETE FROM planner_users WHERE id=?").bind(uid).run();
+          return out({error:"This invitation has expired or has already been used"},410);
+        }
+      } catch { return out({error:"Could not accept invitation. Check whether this email already has an account."},409); }
+      const loginToken=await issueSession(env,{id:uid,workspace_id:inv.workspaceId});
+      return out({ok:true,workspaceSlug: (await env.DB.prepare("SELECT slug FROM planner_workspaces WHERE id=?").bind(inv.workspaceId).first<{slug:string}>())?.slug},200,{"Set-Cookie":cookieHeader(loginToken,43200)});
+    }
     if(p[0]==="auth"&&p[1]==="login") {
       const b=await body<{workspaceSlug?:string;email?:string;password?:string}>(request); if(!b) return out({error:"Invalid JSON"},400);
       const slug=slugify(String(b.workspaceSlug||"")),email=String(b.email||"").trim().toLowerCase(),pass=String(b.password||"");
@@ -124,8 +145,21 @@ export const onRequestPost: PagesFunction<Env> = async ({request,env,params}) =>
       await env.DB.prepare("INSERT INTO planner_clients(id,workspace_id,name,industry,contact_email,notes) VALUES(?,?,?,?,?,?)").bind(cid,s.workspaceId,name.slice(0,120),String(b?.industry||"").slice(0,100),String(b?.contactEmail||"").trim().slice(0,160),String(b?.notes||"").slice(0,4000)).run();
       return out({ok:true,client:{id:cid,name}},201);
     }
-    if(p[0]==="members") {
+    if(p[0]==="members"&&p[1]==="invite") {
       if(!allowed(s,["owner","admin"])) return out({error:"Forbidden"},403);
+      const b=await body<{email?:string;name?:string;role?:Role;clientId?:string|null}>(request);
+      const email=String(b?.email||"").trim().toLowerCase(),name=String(b?.name||"").trim().slice(0,100),role=b?.role,clientId=b?.clientId||null;
+      if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)||!name||!["admin","staff","client"].includes(String(role))) return out({error:"Valid email, name and role are required"},400);
+      if(role==="client"&&!clientId) return out({error:"Client users must be linked to a client"},400);
+      if(clientId&&!await env.DB.prepare("SELECT id FROM planner_clients WHERE id=? AND workspace_id=?").bind(clientId,s.workspaceId).first()) return out({error:"Client not found"},404);
+      if(await env.DB.prepare("SELECT id FROM planner_users WHERE workspace_id=? AND email=?").bind(s.workspaceId,email).first()) return out({error:"This email already belongs to a workspace member"},409);
+      await env.DB.prepare("DELETE FROM planner_invitations WHERE workspace_id=? AND email=? AND accepted_at IS NULL").bind(s.workspaceId,email).run();
+      const token=hex(32),expires=now()+7*86400;
+      await env.DB.prepare("INSERT INTO planner_invitations(token_hash,workspace_id,email,name,role,client_id,invited_by,expires_at,created_at) VALUES(?,?,?,?,?,?,?,?,?)").bind(await digest(token),s.workspaceId,email,name,role,clientId,s.userId,expires,now()).run();
+      const inviteUrl=new URL("/planner/invite/"+token,request.url).toString();
+      return out({ok:true,invitation:{email,name,role,expiresAt:expires,inviteUrl}},201);
+    }
+
       const b=await body<{email?:string;name?:string;role?:Role;password?:string;clientId?:string}>(request);
       const email=String(b?.email||"").trim().toLowerCase(),name=String(b?.name||"").trim(),role=b?.role,pass=String(b?.password||""),clientId=b?.clientId||null;
       if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)||!name||!["admin","staff","client"].includes(String(role))||pass.length<12||pass.length>256) return out({error:"Valid email, name, role and 12+ character password are required"},400);
