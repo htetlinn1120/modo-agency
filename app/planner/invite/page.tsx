@@ -1,9 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function AcceptPlannerInvitePage() {
+function InviteForm() {
   const searchParams=useSearchParams();
   const router=useRouter();
   const token=String(searchParams.get("token")||"");
@@ -37,4 +37,8 @@ export default function AcceptPlannerInvitePage() {
       <button disabled={busy||!token} className="w-full rounded-xl bg-neutral-950 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">{busy?"Activating account…":"Accept invitation"}</button>
     </form>
   </div></main>;
+}
+
+export default function AcceptPlannerInvitePage() {
+  return <Suspense fallback={<main className="min-h-screen bg-[#f4f5f1] p-8 text-neutral-600">Loading invitation…</main>}><InviteForm /></Suspense>;
 }
