@@ -156,7 +156,7 @@ export const onRequestPost: PagesFunction<Env> = async ({request,env,params}) =>
       await env.DB.prepare("DELETE FROM planner_invitations WHERE workspace_id=? AND email=? AND accepted_at IS NULL").bind(s.workspaceId,email).run();
       const token=hex(32),expires=now()+7*86400;
       await env.DB.prepare("INSERT INTO planner_invitations(token_hash,workspace_id,email,name,role,client_id,invited_by,expires_at,created_at) VALUES(?,?,?,?,?,?,?,?,?)").bind(await digest(token),s.workspaceId,email,name,role,clientId,s.userId,expires,now()).run();
-      const inviteUrl=new URL("/planner/invite/"+token,request.url).toString();
+      const inviteUrl=new URL("/planner/invite/?token="+token,request.url).toString();
       return out({ok:true,invitation:{email,name,role,expiresAt:expires,inviteUrl}},201);
     }
 
