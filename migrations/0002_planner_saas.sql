@@ -64,7 +64,8 @@ CREATE TABLE IF NOT EXISTS planner_posts (
   approved_by TEXT,
   approved_at TEXT,
   client_feedback TEXT NOT NULL DEFAULT '',
-  FOREIGN KEY (client_id, workspace_id) REFERENCES planner_clients(id, workspace_id) ON DELETE CASCADE
+  FOREIGN KEY (client_id, workspace_id) REFERENCES planner_clients(id, workspace_id) ON DELETE CASCADE,
+  UNIQUE (id, workspace_id)
 );
 
 CREATE TABLE IF NOT EXISTS planner_media (
