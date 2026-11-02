@@ -1,4 +1,4 @@
-interface Env { DB: D1Database; ADMIN_EMAIL: string; ADMIN_PASSWORD: string; }
+interface Env { DB: D1Database; MEDIA: R2Bucket; ADMIN_EMAIL: string; ADMIN_PASSWORD: string; }
 type Role = "owner" | "admin" | "staff" | "client";
 type UserSession = { userId: string; workspaceId: string; clientId: string | null; role: Role; email: string; name: string; workspaceSlug: string };
 const out = (data: unknown, status = 200, headers?: HeadersInit) => Response.json(data, { status, headers: { "Cache-Control": "no-store", ...Object.fromEntries(new Headers(headers).entries()) } });
@@ -167,7 +167,9 @@ export const onRequestPost: PagesFunction<Env> = async ({request,env,params}) =>
     }
     if(p[0]==="media") {
       if(!allowed(s,["owner","admin","staff"])) return out({error:"Forbidden"},403);
-      const form=await request.formData().catch(()=>null),file=form?.get("file");
+      const form=await request.formData().catch(()=>null);
+      if(!form) return out({error:"Invalid multipart form"},400);
+      const file=form.get("file");
       if(!(file instanceof File)) return out({error:"Image file required"},400);
       const types:Record<string,string>={"image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/avif":"avif"};
       const ext=types[file.type]; if(!ext) return out({error:"Only JPG, PNG, WebP and AVIF images are supported"},415);
