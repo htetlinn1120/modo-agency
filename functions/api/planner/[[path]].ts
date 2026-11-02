@@ -110,7 +110,7 @@ export const onRequestPost: PagesFunction<Env> = async ({request,env,params}) =>
       try {
         await env.DB.prepare("INSERT INTO planner_users(id,workspace_id,client_id,email,name,role,password_hash,password_salt) VALUES(?,?,?,?,?,?,?,?)").bind(uid,inv.workspaceId,inv.clientId,inv.email,inv.name,inv.role,passwordHashValue,salt).run();
         const updated=await env.DB.prepare("UPDATE planner_invitations SET accepted_at=? WHERE token_hash=? AND accepted_at IS NULL AND expires_at>?").bind(now(),inv.tokenHash,now()).run();
-        if(!updated.meta.changes) {
+        if(!Number((updated as { meta?: { changes?: number } }).meta?.changes)) {
           await env.DB.prepare("DELETE FROM planner_users WHERE id=?").bind(uid).run();
           return out({error:"This invitation has expired or has already been used"},410);
         }
